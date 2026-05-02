@@ -1,0 +1,18 @@
+name: line
+kind: platform
+version: 0.1.0
+description: >
+  LINE Messaging API (LINE Official Account) gateway adapter for Hermes Agent.
+  Receives webhooks from one or more LINE Official Accounts, verifies
+  X-Line-Signature, downloads inbound images/audio for the agent, and replies
+  through the Push API. Supports multi-account routing with per-group persona
+  (auto_skill) selection.
+author: Li-yang Chen
+license: MIT
+requires_env:
+  - name: LINE_CHANNEL_ACCESS_TOKEN
+    description: Long-lived Channel Access Token from LINE Developers Console
+    secret: true
+  - name: LINE_CHANNEL_SECRET
+    description: Channel Secret used for X-Line-Signature HMAC verification
+    secret: true

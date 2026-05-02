@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hermes-plugin-line"
+version = "0.1.0"
+description = "LINE Messaging API (Official Account) gateway platform plugin for Hermes Agent"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Li-yang Chen" }]
+keywords = ["hermes-agent", "plugin", "line", "messaging-api", "gateway"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Framework :: AsyncIO",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Communications :: Chat",
+]
+dependencies = [
+  "aiohttp>=3.9",
+]
+
+[project.urls]
+Homepage = "https://github.com/liyoungc/hermes-plugin-line"
+Source = "https://github.com/liyoungc/hermes-plugin-line"
+
+[project.entry-points."hermes_agent.plugins"]
+line = "line_platform"
+
+[tool.setuptools]
+packages = ["line_platform"]
+py-modules = []
+
+[tool.setuptools.package-data]
+line_platform = []
