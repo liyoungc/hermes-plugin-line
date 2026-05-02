@@ -8,7 +8,7 @@ Hermes Agent 的 gateway plugin，用來接 **LINE Messaging API**（LINE Offici
 
 - 在 `/webhook/line` 收 webhook（每個 account 可自訂 path）
 - `X-Line-Signature` HMAC-SHA256 驗章
-- **Multi-account 同進程運作** — 例如同一台 gateway 同時跑你個人主帳號和醫院 Lynx 帳號，各自有獨立的 credentials、webhook path、persona 路由表、authorization policy
+- **Multi-account 同進程運作** — 同一台 gateway 同時跑多個 LINE Official Account，各自有獨立的 credentials、webhook path、persona 路由表、authorization policy
 - **每個群組獨立 persona 路由** 透過 `group_personas: {<bare_group_id>: <skill_name>}` → 注入 `MessageEvent.auto_skill`，在新 session 時生效
 - DM allow-list (`allow_from`) 與 group allow-list（`group_policy: allowlist` 時，`group_personas` 的 keys 即白名單）
 - 支援收進來的訊息類型：text / image / audio / sticker。圖片和語音會用 Bearer auth 下載並 cache，給 vision / voice tool 看
@@ -61,16 +61,16 @@ gateway:
       enabled: true
       extra:
         webhook_path: /webhook/line
-        default_persona: cattia-line
+        default_persona: my-persona
         dm_policy: allowlist
         group_policy: open
         allow_from:
-          - U2299043b96746a5d1f81b7d73fe1e770   # 你自己的 LINE userId
+          - Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx   # 你自己的 LINE userId
         group_personas:
-          Cd0e6c2529c0b4514361aec67da55871c: mochi-line
+          Cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx: family-persona
 ```
 
-### 多帳號（同一 gateway 跑主帳號 + Lynx）
+### 多帳號（同一 gateway 跑兩個以上的 LINE Official Account）
 
 ```yaml
 gateway:
@@ -81,26 +81,26 @@ gateway:
         host: 127.0.0.1
         port: 18791
         accounts:
-          main:
-            channel_access_token: U6UklOFV...
-            channel_secret: 71f7b3ad...
-            webhook_path: /webhook/line
-            default_persona: cattia-line
+          account1:
+            channel_access_token: <token-1>
+            channel_secret: <secret-1>
+            webhook_path: /webhook/line/account1
+            default_persona: account1-persona
             dm_policy: allowlist
             group_policy: open
-            allow_from: [U2299043b96746a5d1f81b7d73fe1e770]
+            allow_from: [Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]
             group_personas:
-              Cd0e6c2529c0b4514361aec67da55871c: mochi-line
-          lynx:
-            channel_access_token: jkGtF8dn...
-            channel_secret: 787ef75e...
-            webhook_path: /webhook/line/lynx
-            default_persona: lynx-hospital
+              Cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx: account1-group-persona
+          account2:
+            channel_access_token: <token-2>
+            channel_secret: <secret-2>
+            webhook_path: /webhook/line/account2
+            default_persona: account2-persona
             dm_policy: pairing
             group_policy: allowlist
             group_personas:
-              Cafa9730279fc00f7c65909a02084955e: lynx-hospital
-              C77c9adadb82dc33e3e1e1bde200fe873: lynx-hospital
+              Cyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy: account2-group-persona
+              Czzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz: account2-group-persona
 ```
 
 Cloudflare tunnel（一個 host 跑兩個 path 比兩個 port 乾淨）：
@@ -111,10 +111,10 @@ ingress:
     service: http://localhost:18791
 ```
 
-到 LINE Developers Console 設定：
-- 主帳號 webhook URL：`https://hermes-line.example.com/webhook/line`
-- Lynx webhook URL：`https://hermes-line.example.com/webhook/line/lynx`
-- 把 LINE Official Account 的 **Auto-reply messages** 關掉，bot 才能正常回話
+到 LINE Developers Console 設定（每個 channel 一個 webhook URL）：
+- account1 webhook URL：`https://hermes-line.example.com/webhook/line/account1`
+- account2 webhook URL：`https://hermes-line.example.com/webhook/line/account2`
+- 把每個 LINE Official Account 的 **Auto-reply messages** 關掉，bot 才能正常回話
 
 ## 授權策略 / Authorization policies
 
@@ -131,7 +131,7 @@ ingress:
 
 ## 指定帳號發送（cron / proactive push）
 
-當 gateway 要推訊息給特定 account（例如只給 Lynx 推早班 brief），呼叫 `send()` 時帶 `metadata={"account_id": "lynx"}`。沒帶這個 hint 的話，多帳號設定下預設用第一個 account。
+當 gateway 要推訊息給特定 account（例如只給 `account2` 推某個早班 brief），呼叫 `send()` 時帶 `metadata={"account_id": "account2"}`。沒帶這個 hint 的話，多帳號設定下預設用第一個 account。
 
 ## 測試 / Tests
 
