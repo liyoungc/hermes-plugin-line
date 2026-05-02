@@ -348,6 +348,7 @@ class LineAdapter(BasePlatformAdapter):
         self._clients: dict[str, LineClient] = {}
         self._session: Optional[aiohttp.ClientSession] = None
         self._runner: Optional[web.AppRunner] = None
+        self._auto_sethome_done: bool = False
 
     @property
     def name(self) -> str:
@@ -504,6 +505,14 @@ class LineAdapter(BasePlatformAdapter):
                 user_name = str(profile["displayName"])
                 channel_prompt = f"LINE sender: {user_name}"
 
+        # Auto-sethome: silently designate the first chat we see (preferring DMs)
+        # as LINE_HOME_CHANNEL so cron-job results have a default destination
+        # and so the gateway's "No home channel set" first-message prompt does
+        # not nag the user on every new chat. DMs always take priority over
+        # groups; once a DM has been seen, we stop overriding.
+        if not self._auto_sethome_done:
+            self._maybe_auto_sethome(chat_id, chat_type)
+
         sess_source = self.build_source(
             chat_id=chat_id,
             chat_name=chat_id,
@@ -524,6 +533,40 @@ class LineAdapter(BasePlatformAdapter):
             channel_prompt=channel_prompt,
         )
         await self.handle_message(hermes_event)
+
+    def _maybe_auto_sethome(self, chat_id: str, chat_type: str) -> None:
+        """Silently set ``LINE_HOME_CHANNEL`` env var on first message.
+
+        DM > group: DMs always overwrite; group chats only fill in if no home
+        is set yet. Once a DM has been seen the upgrade flag flips and we
+        never touch the env var again from inbound traffic.
+
+        Hermes core (gateway/run.py) checks ``<PLATFORM>_HOME_CHANNEL`` env
+        when deciding whether to nag users with the "No home channel is set"
+        prompt on first session in a chat. Without auto-sethome, every new
+        DM and every new group fires that prompt because each chat has its
+        own session and the env var is never populated unless the user runs
+        ``/sethome`` (which they often forget or skip).
+        """
+        cur_home = os.getenv("LINE_HOME_CHANNEL", "").strip()
+        if chat_type == "dm":
+            if str(chat_id) != cur_home:
+                self._save_home_channel(chat_id, label="DM")
+            self._auto_sethome_done = True
+        elif not cur_home:
+            self._save_home_channel(chat_id, label="group fallback")
+
+    @staticmethod
+    def _save_home_channel(chat_id: str, *, label: str) -> None:
+        try:
+            # Lazy import — keeps the plugin importable in environments where
+            # the hermes_cli package is not on sys.path (tests, packaging).
+            from hermes_cli.config import save_env_value  # type: ignore
+
+            save_env_value("LINE_HOME_CHANNEL", str(chat_id))
+            logger.info("[line] Auto-sethome: %s %s set as LINE home channel", label, chat_id)
+        except Exception as exc:  # pragma: no cover — best-effort
+            logger.warning("[line] Auto-sethome failed: %s", exc)
 
     # -- outbound -----------------------------------------------------------
 
