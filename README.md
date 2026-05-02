@@ -1,50 +1,50 @@
 # Hermes LINE Plugin
 
-A Hermes Agent gateway plugin for the **LINE Messaging API** (LINE Official Account / consumer LINE — `manager.line.biz`).
+Hermes Agent 的 gateway plugin，用來接 **LINE Messaging API**（LINE Official Account / 消費版 LINE，後台在 `manager.line.biz`）。
 
-> Different from [Unayung/hermes-plugin-lineworks](https://github.com/Unayung/hermes-plugin-lineworks). That plugin targets **LINE WORKS** (Works Mobile, B2B). This one targets the consumer LINE Messaging API used by Official Accounts. The two services use different endpoints, signatures, auth, and message schemas — a single plugin cannot serve both.
+> 跟 [Unayung/hermes-plugin-lineworks](https://github.com/Unayung/hermes-plugin-lineworks) 不一樣 — 那個是給 **LINE WORKS**（Works Mobile，B2B 企業協作版）用的。這個 plugin 是給 LINE 官方帳號用的。兩邊的 endpoint、簽章 header、認證方式、訊息 schema 完全不同，**一個 plugin 不可能同時服務兩種**。
 
-## Features
+## 特色 / Features
 
-- Inbound webhook at `/webhook/line` (configurable per account)
-- `X-Line-Signature` HMAC-SHA256 verification
-- **Multi-account** in one process — host e.g. a personal main account and a hospital account on the same gateway, each with its own credentials, webhook path, persona table, and authorization policy
-- **Per-group persona routing** via `group_personas: {<bare_group_id>: <skill_name>}` → injected into `MessageEvent.auto_skill` for new sessions
-- DM allow-list (`allow_from`) and group allow-list (`group_personas` keys when `group_policy: allowlist`)
-- Inbound text, image, audio, sticker. Images/audio downloaded with Bearer auth and cached for vision/voice tools
-- Outbound via **Push API only** (`/v2/bot/message/push`) — no reply-token reliance, so cron deliveries and long-running tool calls work the same as live replies
-- Markdown stripped on outbound (LINE does not render markdown); messages auto-split at ~4900 chars on whitespace
-- Best-effort sender enrichment via `/v2/bot/profile/{userId}` → injected as `channel_prompt` so the LLM knows who is talking
-- Zero `line-bot-sdk` dependency — only `aiohttp` for HTTP and stdlib `hmac` for signature
+- 在 `/webhook/line` 收 webhook（每個 account 可自訂 path）
+- `X-Line-Signature` HMAC-SHA256 驗章
+- **Multi-account 同進程運作** — 例如同一台 gateway 同時跑你個人主帳號和醫院 Lynx 帳號，各自有獨立的 credentials、webhook path、persona 路由表、authorization policy
+- **每個群組獨立 persona 路由** 透過 `group_personas: {<bare_group_id>: <skill_name>}` → 注入 `MessageEvent.auto_skill`，在新 session 時生效
+- DM allow-list (`allow_from`) 與 group allow-list（`group_policy: allowlist` 時，`group_personas` 的 keys 即白名單）
+- 支援收進來的訊息類型：text / image / audio / sticker。圖片和語音會用 Bearer auth 下載並 cache，給 vision / voice tool 看
+- Outbound 一律走 **Push API** (`/v2/bot/message/push`)：不依賴 reply token，所以 cron 推送、長 tool 計算後再回覆都跟即時回話一樣可行
+- Outbound 自動 strip markdown（LINE 不渲染 markdown），長訊息以空白為界自動切成 ~4900 字一段
+- Best-effort sender enrichment：透過 `/v2/bot/profile/{userId}` 拉 displayName，塞進 `MessageEvent.channel_prompt`，讓 LLM 知道現在是誰在傳訊
+- **零 `line-bot-sdk` 依賴** — 只用 `aiohttp` 跑 HTTP server，搭配 stdlib `hmac` 算簽章
 
-## Out of scope
+## 不在範圍內 / Out of scope
 
-Reply API (we only push), Flex Messages, rich menus, video, file types, group management events, narrowcast/broadcast, LINE Login/LIFF.
+Reply API（我們只 push）、Flex Messages、Rich Menu、video、file 類型訊息、群組管理事件、narrowcast / broadcast、LINE Login / LIFF。
 
-## Install
+## 安裝 / Install
 
 ```bash
 hermes plugins install /absolute/path/to/hermes-plugin-line
 hermes gateway restart
 ```
 
-Or once published from GitHub:
+或直接從 GitHub：
 
 ```bash
 hermes plugins install https://github.com/liyoungc/hermes-plugin-line.git
 hermes gateway restart
 ```
 
-For pip distribution:
+如果走 pip 散佈，`pyproject.toml` 已經宣告好 entry-point：
 
 ```toml
 [project.entry-points."hermes_agent.plugins"]
 line = "line_platform"
 ```
 
-## Config
+## 設定 / Config
 
-### Single account (env-driven)
+### 單帳號（環境變數驅動）
 
 ```bash
 # .env
@@ -65,12 +65,12 @@ gateway:
         dm_policy: allowlist
         group_policy: open
         allow_from:
-          - U2299043b96746a5d1f81b7d73fe1e770
+          - U2299043b96746a5d1f81b7d73fe1e770   # 你自己的 LINE userId
         group_personas:
           Cd0e6c2529c0b4514361aec67da55871c: mochi-line
 ```
 
-### Two accounts (main + Lynx) on one gateway
+### 多帳號（同一 gateway 跑主帳號 + Lynx）
 
 ```yaml
 gateway:
@@ -103,7 +103,7 @@ gateway:
               C77c9adadb82dc33e3e1e1bde200fe873: lynx-hospital
 ```
 
-Cloudflare tunnel (one host, two paths — cleaner than two ports):
+Cloudflare tunnel（一個 host 跑兩個 path 比兩個 port 乾淨）：
 
 ```yaml
 ingress:
@@ -111,33 +111,41 @@ ingress:
     service: http://localhost:18791
 ```
 
-In LINE Developers Console:
-- Main webhook URL: `https://hermes-line.example.com/webhook/line`
-- Lynx webhook URL: `https://hermes-line.example.com/webhook/line/lynx`
-- Disable LINE Official Account "Auto-reply" so the bot can answer.
+到 LINE Developers Console 設定：
+- 主帳號 webhook URL：`https://hermes-line.example.com/webhook/line`
+- Lynx webhook URL：`https://hermes-line.example.com/webhook/line/lynx`
+- 把 LINE Official Account 的 **Auto-reply messages** 關掉，bot 才能正常回話
 
-## Authorization policies
+## 授權策略 / Authorization policies
 
-| `dm_policy` | Behavior |
+| `dm_policy` | 行為 |
 |---|---|
-| `allowlist` *(default)* | Drop DMs from users not in `allow_from` |
-| `open` | Accept all DMs |
-| `pairing` | Accept all DMs; GatewayRunner enforces a pairing flow |
+| `allowlist`（預設） | 不在 `allow_from` 裡的使用者 DM 直接 drop |
+| `open` | 任何人 DM 都接受 |
+| `pairing` | 全部接受；由 GatewayRunner 跑 pairing flow |
 
-| `group_policy` | Behavior |
+| `group_policy` | 行為 |
 |---|---|
-| `open` *(default)* | Accept all groups; persona = `group_personas.get(gid, default_persona)` |
-| `allowlist` | Drop messages from groups whose ID is not a key of `group_personas` |
+| `open`（預設） | 全部群組都接受；persona 走 `group_personas.get(gid, default_persona)` |
+| `allowlist` | 群組 ID 不在 `group_personas` keys 裡的訊息直接 drop |
 
-## Outbound to a specific account (cron / proactive push)
+## 指定帳號發送（cron / proactive push）
 
-When the gateway needs to push to a specific account (e.g. Lynx-only morning brief), pass `metadata={"account_id": "lynx"}` to `send()`. Without that hint, multi-account sends use the first configured account.
+當 gateway 要推訊息給特定 account（例如只給 Lynx 推早班 brief），呼叫 `send()` 時帶 `metadata={"account_id": "lynx"}`。沒帶這個 hint 的話，多帳號設定下預設用第一個 account。
 
-## Tests
+## 測試 / Tests
 
 ```bash
 pip install pytest aiohttp
 pytest tests/ -v
 ```
 
-The tests stub out the `gateway.*` modules so they run without the full Hermes runtime.
+Test 會 stub 掉 `gateway.*` modules，不需要完整 Hermes runtime 就能跑（16/16 passing）。
+
+## 注意事項 / Heads-up
+
+如果你的 Hermes 已經把這個 plugin 對應的 LINE adapter merge 進 core（`gateway/platforms/line.py` 已存在），核心會搶先註冊 `Platform.LINE`，這個 plugin 會被當 no-op。這種情況下 plugin 留著也沒事，但實質上是核心 adapter 在工作。要驗證是哪一邊在跑，看 gateway log 開頭是 `[line]`（核心）還是 `[line_platform]`（plugin）。
+
+## License
+
+MIT
