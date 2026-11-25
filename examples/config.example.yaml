@@ -1,0 +1,42 @@
+# 獨立連接器設定檔。放在 $LINE_CONNECTOR_HOME/config.yaml（權限 600）。
+# 金鑰不要寫在這裡：用 env:名稱 指到同目錄 .env 裡的環境變數。
+
+host: 127.0.0.1          # webhook 只聽本機，由 Cloudflare tunnel 轉進來
+port: 18791
+webhook_path: /webhook/line
+
+channel_access_token: env:LINE_CHANNEL_ACCESS_TOKEN
+channel_secret: env:LINE_CHANNEL_SECRET
+
+group_policy: allowlist  # 沒設定的群組一律不記錄、不回覆
+reply_first: true        # 先用免費的 reply token，逾時才改用 Push
+admins:
+  - Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx   # 禮揚的 LINE userId（不是顯示名稱）
+bot_names: [巧可, Choco]
+owner_label: 禮揚
+
+llm:
+  model: claude-sonnet-5-5   # 預設模型；各群組可用 /group model 另外指定
+  effort: low
+
+api:                     # 給 Muse 用的本機介面，只聽 127.0.0.1
+  port: 18792
+  token: env:LINE_CONNECTOR_API_TOKEN
+
+muse:
+  notify_url: ""         # 有新問題時通知 Muse 的網址（可留空，改由 Muse 輪詢）
+  notify_token: env:MUSE_NOTIFY_TOKEN
+  turn_ttl_s: 900        # Muse 超過這個秒數沒回，問題就作廢
+
+# 群組也可以完全不寫在這裡：把巧可加進群組後，照她私訊你的設定碼
+# 用 /group add 設定即可。寫在這裡的好處是可以設定觸發規則與人設。
+groups:
+  Cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx:
+    label: disney
+    mode: shadow             # shadow 只記錄｜quiet 只回 @｜active 正常回答
+    backend: llm             # llm｜muse
+    # model: claude-opus-5-5
+    # muse_chat: <Muse Side Chat 代號>
+    persona_prompt: 你是巧可，家族郵輪旅行的小幫手。語氣親切簡短。
+    triggers: ["郵輪|行程|登船|cruise|itinerary|boarding"]
+    summary_every: 30

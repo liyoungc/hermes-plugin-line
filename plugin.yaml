@@ -1,6 +1,6 @@
 name: line
 kind: platform
-version: 0.1.0
+version: 0.2.0
 description: >
   LINE Messaging API (LINE Official Account) gateway adapter for Hermes Agent.
   Receives webhooks from one or more LINE Official Accounts, verifies
