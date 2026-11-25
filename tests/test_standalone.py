@@ -181,7 +181,8 @@ def test_muse_queue_and_local_api(tmp_path):
         await feed(service, group_event("訂位編號 ABX12345，10:30 大廳集合", user=BOB))
         await feed(service, group_event("巧可 登船日是哪天？"))
         assert model.calls == []  # Muse answers, not the model
-        assert service.fake.replies == []
+        # The free reply token is spent on a short acknowledgement.
+        assert service.fake.replies[-1][1] == ["收到，我查一下再回覆。"]
         async with TestClient(TestServer(service.api_app())) as client:
             assert (await client.get("/api/v1/groups")).status == 401
             assert (await client.get("/api/v1/groups", headers={"Authorization": "Bearer nope"})).status == 401
@@ -203,14 +204,14 @@ def test_muse_queue_and_local_api(tmp_path):
             assert claim.status == 200
             assert (await client.post(f"/api/v1/turns/{turn['id']}/claim", headers=AUTH)).status == 409
             reply = await client.post(f"/api/v1/turns/{turn['id']}/reply", json={"text": "2/14 登船"}, headers=AUTH)
-            assert (await reply.json()) == {"ok": True, "method": "reply"}
-            assert service.fake.replies[-1][1] == ["2/14 登船"]
+            assert (await reply.json()) == {"ok": True, "method": "push"}
+            assert service.fake.texts_to(GROUP_A) == ["2/14 登船"]
             again = await client.post(f"/api/v1/turns/{turn['id']}/reply", json={"text": "再一次"}, headers=AUTH)
             assert again.status == 409
 
             # History: redacted by default, raw on request, scoped to one group.
             msgs = (await (await client.get("/api/v1/messages", params={"group": "disney"}, headers=AUTH)).json())["messages"]
-            assert [m["speaker"] for m in msgs] == ["Bob", "阿嬤", "巧可"]
+            assert [m["speaker"] for m in msgs] == ["Bob", "阿嬤", "巧可", "巧可"]
             assert "ABX12345" not in msgs[0]["text"] and "10:30" in msgs[0]["text"]
             raw = await client.get("/api/v1/messages", params={"group": "disney", "redact": "0"}, headers=AUTH)
             assert "ABX12345" in (await raw.json())["messages"][0]["text"]
@@ -275,3 +276,35 @@ def test_seen_lists_unconfigured_chat_ids_only(tmp_path, monkeypatch, capsys):
     standalone.main()
     out = capsys.readouterr().out
     assert ALICE in out and "我是誰" not in out
+
+
+def test_muse_binds_its_side_chat_through_the_api(tmp_path):
+    service = make_service(tmp_path, None)
+    uuid = "815ed4b5-2e92-4c1f-9d0a-000000000000"
+
+    async def scenario():
+        async with TestClient(TestServer(service.api_app())) as client:
+            assert (await client.post("/api/v1/groups/bind", json={"group": "disney", "muse_chat": uuid})).status == 401
+            bad = await client.post("/api/v1/groups/bind", json={"group": "disney", "muse_chat": ""}, headers=AUTH)
+            assert bad.status == 400
+            ok = await client.post("/api/v1/groups/bind", json={"group": "disney", "muse_chat": uuid}, headers=AUTH)
+            # Binding does not switch who answers; that stays with the admin.
+            assert (await ok.json()) == {"ok": True, "group": "disney", "backend": "llm", "muse_chat": uuid}
+
+    run(scenario())
+    key = service.engine._group_key("default", GROUP_A)
+    assert uuid in service.engine.store.get_setting(key)
+    service.engine.store.close()
+
+
+def test_muse_ack_can_be_disabled(tmp_path):
+    config = base_extra(backend="muse")
+    config["muse"] = {"ack_text": ""}
+    service = Service(config, store=Store(tmp_path / "data" / "line.db"))
+    service.fake = FakeClient()
+    service.engine.clients = {"default": service.fake}
+    service.engine.store.register_member("default", GROUP_A, ALICE, local_name="阿嬤", role="奶奶")
+    run(feed(service, group_event("巧可 登船日是哪天？")))
+    assert service.fake.replies == [] and service.fake.pushes == []
+    assert service.engine.store.get_turn(1)["status"] == "pending"
+    service.engine.store.close()

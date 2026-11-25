@@ -96,6 +96,7 @@ systemd 範例見 `examples/line-connector.service`。資料庫在 `$LINE_CONNEC
 | 方法與路徑 | 用途 |
 |---|---|
 | `GET /api/v1/groups` | 群組清單、回答來源、綁定的 Side Chat、成員 |
+| `POST /api/v1/groups/bind` `{"group": "disney", "muse_chat": "<UUID>"}` | 登記群組綁定的 Side Chat（不會切換回答來源） |
 | `GET /api/v1/messages?group=disney&day=2027-02-14` | 某一天的全部訊息 |
 | `GET /api/v1/messages?group=disney&q=集合` | 關鍵字搜尋 |
 | `GET /api/v1/messages?group=disney&after_seq=120` | 從某則之後增量讀取 |
@@ -106,7 +107,7 @@ systemd 範例見 `examples/line-connector.service`。資料庫在 `$LINE_CONNEC
 | `POST /api/v1/send` `{"group": "disney", "text": "..."}` | 主動發訊息 |
 
 訊息預設會遮蔽敏感內容；加 `redact=0` 取得原文。
-Muse 若超過一分鐘才回覆，會改用計費的 Push 送出。
+Muse 通常超過一分鐘才回覆，所以排進佇列時會先用免費的 reply token 回一句「收到，我查一下再回覆。」（設定檔 `muse.ack_text`，設成空字串可關閉），正式答案改用計費的 Push 送出。
 
 ## 測試
 

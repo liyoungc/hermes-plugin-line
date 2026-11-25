@@ -26,6 +26,7 @@ api:                     # 給 Muse 用的本機介面，只聽 127.0.0.1
 muse:
   notify_url: ""         # 有新問題時通知 Muse 的網址（可留空，改由 Muse 輪詢）
   notify_token: env:MUSE_NOTIFY_TOKEN
+  ack_text: 收到，我查一下再回覆。   # 先用免費回覆佔位；空字串＝不回
   turn_ttl_s: 900        # Muse 超過這個秒數沒回，問題就作廢
 
 # 群組也可以完全不寫在這裡：把巧可加進群組後，照她私訊你的設定碼
