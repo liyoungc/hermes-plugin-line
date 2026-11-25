@@ -257,3 +257,21 @@ def test_api_cannot_send_into_shadow_group(tmp_path):
     run(scenario())
     assert service.fake.pushes == []
     service.engine.store.close()
+
+
+def test_seen_lists_unconfigured_chat_ids_only(tmp_path, monkeypatch, capsys):
+    import yaml
+
+    from line_platform import standalone
+
+    monkeypatch.setenv("LINE_CONNECTOR_HOME", str(tmp_path))
+    config = {"channel_access_token": "t", "channel_secret": "s", "group_policy": "allowlist"}
+    (tmp_path / "config.yaml").write_text(yaml.safe_dump(config), encoding="utf-8")
+    service = Service(config, store=Store())
+    service.engine.clients = {"default": FakeClient()}
+    run(feed(service, {**group_event("我是誰"), "source": {"type": "user", "userId": ALICE}}))
+    service.engine.store.close()
+    monkeypatch.setattr(sys, "argv", ["line-connector", "--config", str(tmp_path / "config.yaml"), "--seen"])
+    standalone.main()
+    out = capsys.readouterr().out
+    assert ALICE in out and "我是誰" not in out

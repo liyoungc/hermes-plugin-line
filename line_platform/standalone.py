@@ -428,7 +428,18 @@ async def _amain(config_path: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Standalone LINE connector")
     parser.add_argument("--config", type=Path, default=default_data_dir() / "config.yaml")
+    parser.add_argument(
+        "--seen", action="store_true",
+        help="list chats that messaged the bot but are not set up yet (IDs only), then exit",
+    )
     args = parser.parse_args()
+    if args.seen:
+        store = Store()
+        for account in accounts_from_extra(load_config(args.config)):
+            for chat in store.stats(account.account_id)["unjournaled"]:
+                print(f"{chat['chat_type']}\t{chat['chat_id']}\t{chat['count']} event(s)")
+        store.close()
+        return
     logging.basicConfig(level=os.getenv("LINE_CONNECTOR_LOG", "INFO"), format="%(asctime)s %(levelname)s %(message)s")
     asyncio.run(_amain(args.config))
 

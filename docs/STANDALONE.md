@@ -36,6 +36,10 @@ ANTHROPIC_API_KEY=
 LINE_CONNECTOR_API_TOKEN=     # 自己產生：openssl rand -hex 32
 ```
 
+第一次設定時還不知道管理者的 LINE userId：先啟動服務，用自己的 LINE 加機器人好友並傳一句話，再執行
+`python -m line_platform.standalone --config ~/line-connector/config.yaml --seen`，
+列出的 `dm  U...` 就是你的 userId。填進 `admins` 後重啟。
+
 systemd 範例見 `examples/line-connector.service`。資料庫在 `$LINE_CONNECTOR_HOME/line_platform.db`（權限 600）。
 
 ## LINE 後台檢查清單
