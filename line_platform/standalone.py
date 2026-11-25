@@ -116,6 +116,10 @@ class Service:
         self.muse_notify_url = _resolve_env(muse.get("notify_url"))
         self.muse_notify_token = _resolve_env(muse.get("notify_token"))
         self.turn_ttl_s = int(muse.get("turn_ttl_s") or 900)
+        # Muse usually needs longer than the reply token lives, so the free
+        # reply is spent on a short acknowledgement. Empty string disables it.
+        ack = muse.get("ack_text")
+        self.muse_ack_text = "收到，我查一下再回覆。" if ack is None else str(ack).strip()
         self.owner_label = str(config.get("owner_label") or "禮揚")
         self.accounts: list[LineAccount] = accounts_from_extra(config)
         self.completion = completion
@@ -164,6 +168,8 @@ class Service:
             system_prompt=turn.context.stable, context=turn.context.volatile,
         )
         logger.info("[line_platform] queued turn %d for muse group=%s", turn_id, turn.group.name)
+        if self.muse_ack_text:
+            await self.engine.send_text(turn.chat_id, self.muse_ack_text, account_id=turn.account.account_id)
         if not self.muse_notify_url or self._session is None:
             return
         headers = {"Authorization": f"Bearer {self.muse_notify_token}"} if self.muse_notify_token else {}
@@ -269,6 +275,20 @@ class Service:
                     })
             return web.json_response({"groups": out})
 
+        async def bind(request: web.Request) -> web.Response:
+            """Muse registers the side chat a group belongs to. This only
+            records the binding; switching the group to the muse backend
+            stays an admin decision (``/group backend``)."""
+            body = await request.json()
+            account = self._account(request, body)
+            group = self._group(account, body.get("group"))
+            chat = str(body.get("muse_chat") or "").strip()
+            if not chat or len(chat) > 200 or any(c.isspace() for c in chat):
+                raise web.HTTPBadRequest(text="muse_chat is required")
+            self.engine._save_group_override(account, group, muse_chat=chat)
+            logger.info("[line_platform] group=%s bound to a muse side chat via API", group.name)
+            return web.json_response({"ok": True, "group": group.name, "backend": group.backend, "muse_chat": chat})
+
         async def messages(request: web.Request) -> web.Response:
             account = self._account(request)
             group = self._group(account, request.query.get("group"))
@@ -350,6 +370,7 @@ class Service:
 
         app = web.Application(middlewares=[auth], client_max_size=256 * 1024)
         app.router.add_get("/api/v1/groups", groups)
+        app.router.add_post("/api/v1/groups/bind", bind)
         app.router.add_get("/api/v1/messages", messages)
         app.router.add_get("/api/v1/summary", summary)
         app.router.add_get("/api/v1/turns", turns)
