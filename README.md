@@ -4,6 +4,11 @@ Hermes Agent 的 gateway plugin，用來接 **LINE Messaging API**（LINE Offici
 
 > 跟 [Unayung/hermes-plugin-lineworks](https://github.com/Unayung/hermes-plugin-lineworks) 不一樣 — 那個是給 **LINE WORKS**（Works Mobile，B2B 企業協作版）用的。這個 plugin 是給 LINE 官方帳號用的。兩邊的 endpoint、簽章 header、認證方式、訊息 schema 完全不同，**一個 plugin 不可能同時服務兩種**。
 
+## 兩種執行方式
+
+- **獨立連接器**（建議）：不需要 Hermes。群組記憶、成員核准、知識庫，以及每個群組可切換由模型或 Muse 回答。見 [docs/STANDALONE.md](docs/STANDALONE.md)。
+- **Hermes 外掛**：下面的原始說明。使用同一套核心；若 Hermes 內建的 LINE 外掛佔用了 `line` 平台名稱，本外掛會在啟動時報錯而不是靜默失效。
+
 ## 特色 / Features
 
 - 在 `/webhook/line` 收 webhook（每個 account 可自訂 path）

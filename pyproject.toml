@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hermes-plugin-line"
-version = "0.1.0"
-description = "LINE Messaging API (Official Account) gateway platform plugin for Hermes Agent"
+version = "0.2.0"
+description = "LINE Official Account connector: journal, member approval, per-group knowledge and memory. Runs standalone or as a Hermes Agent plugin."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -23,6 +23,13 @@ classifiers = [
 dependencies = [
   "aiohttp>=3.9",
 ]
+
+[project.optional-dependencies]
+standalone = ["pyyaml>=6", "anthropic>=1.0"]
+test = ["pytest>=8", "pyyaml>=6"]
+
+[project.scripts]
+line-connector = "line_platform.standalone:main"
 
 [project.urls]
 Homepage = "https://github.com/liyoungc/hermes-plugin-line"
