@@ -139,6 +139,32 @@ def test_new_member_needs_name_and_role(harness):
     reply = run(_dm_reply(h, f"/member approve {code}"))
     assert "姓名與角色" in reply
     assert h.store.membership_status("default", GROUP_A, ALICE) != "approved"
+    assert code in reply
+    reply = run(_dm_reply(h, f"/member approve {code} 阿嬤"))
+    assert "姓名與角色" in reply
+
+
+def test_new_member_can_be_approved_with_spaces(harness):
+    h = harness()
+    run(h.say("巧可 你好嗎？"))
+    code = h.store.pending_requests("default")[0].code
+    reply = run(_dm_reply(h, f"/member approve {code} 禮揚 本人"))
+    assert "已核准" in reply
+    identity = h.store.identity("default", GROUP_A, ALICE)
+    assert (identity.local_name, identity.role) == ("禮揚", "本人")
+
+
+def test_new_member_spaces_with_relation_and_fullwidth_bar(harness):
+    h = harness()
+    run(h.say("巧可 你好嗎？"))
+    run(h.say("巧可 你好嗎？", user=BOB))
+    codes = {r.user_id: r.code for r in h.store.pending_requests("default")}
+    run(h.dm(f"/member approve {codes[ALICE]} 阿嬤 奶奶 禮揚的 媽媽"))
+    a = h.store.identity("default", GROUP_A, ALICE)
+    assert (a.local_name, a.role, a.relation) == ("阿嬤", "奶奶", "禮揚的 媽媽")
+    run(h.dm(f"/member approve {codes[BOB]} 小明｜表弟"))
+    b = h.store.identity("default", GROUP_A, BOB)
+    assert (b.local_name, b.role) == ("小明", "表弟")
 
 
 async def _dm_reply(h, text, user=ADMIN):
