@@ -49,6 +49,7 @@ HELP_TEXT = """\
 管理指令（只在與機器人的私訊中有效）：
 /member pending
 /member approve <核准碼> <姓名> | <角色> | <與你的關係，可省略>
+                                    （新成員也可用空白分隔：<姓名> <角色>）
 /member approve <核准碼>            （此人已在別的群登記過，沿用身分）
 /member approve <核准碼> <本群稱呼>  （沿用身分，只改本群稱呼）
 /member deny <核准碼>
@@ -455,7 +456,7 @@ class Engine:
                 f"沿用身分並指定本群稱呼：/member approve {request.code} 稱呼",
             ]
         else:
-            lines.append(f"核准：/member approve {request.code} 姓名 | 角色 | 與你的關係（可省略）")
+            lines.append(f"核准：/member approve {request.code} 姓名 角色 關係（關係可省略，例如：{request.code} 小明 表弟）")
         lines.append(f"拒絕：/member deny {request.code}")
         if not account.admins:
             logger.error("[line_platform] account %s has no admins; pending request cannot be approved", aid)
@@ -505,10 +506,14 @@ class Engine:
                 request = self.store.request_by_code(aid, code)
                 if request is None:
                     return "找不到這個核准碼。用 /member pending 查看。"
+                rest = rest.replace("｜", "|")
                 fields = [f.strip() for f in rest.split("|")] if rest else []
+                known = self.store.get_person(aid, request.user_id)
+                if known is None and len(fields) == 1 and len(fields[0].split()) >= 2:
+                    # New member typed "姓名 角色 [關係]" with spaces instead of "|".
+                    fields = fields[0].split(maxsplit=2)
                 if any(len(f) > 100 or "\x00" in f for f in fields):
                     return "欄位太長（每欄最多 100 字）。"
-                known = self.store.get_person(aid, request.user_id)
                 kwargs: dict[str, Any] = {}
                 if len(fields) >= 2:
                     if not fields[0] or not fields[1]:
@@ -518,10 +523,10 @@ class Engine:
                         kwargs["relation"] = fields[2]
                 elif len(fields) == 1 and fields[0]:
                     if known is None:
-                        return "這是新成員，請給姓名與角色：/member approve <核准碼> <姓名> | <角色>"
+                        return f"這是新成員，請給姓名與角色，例如：/member approve {code} 小明 表弟"
                     kwargs = {"group_name": fields[0]}
                 elif known is None:
-                    return "這是新成員，請給姓名與角色：/member approve <核准碼> <姓名> | <角色>"
+                    return f"這是新成員，請給姓名與角色，例如：/member approve {code} 小明 表弟"
                 identity = self.store.approve_request(aid, code, decided_by=admin_id, **kwargs)
                 group = account.group(request.group_id)
                 logger.info("[line_platform] member approved group=%s", group.name if group else "?")
