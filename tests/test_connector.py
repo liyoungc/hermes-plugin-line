@@ -357,6 +357,22 @@ def test_reply_first_can_be_disabled(harness):
 # ---------------------------------------------------- knowledge / context
 
 
+def test_muse_backend_may_use_side_chat_memory_but_keeps_privacy_rules(harness):
+    h = harness()
+    h.approve_all()
+    run(h.say("巧可 自助餐幾點開？"))
+    llm = h.turns[-1].context.stable
+    assert "只根據下面的" in llm and "請回答不知道" in llm
+    run(h.dm("/group backend disney muse chat-7"))
+    run(h.say("巧可 集合時間是幾點？"))
+    muse = h.turns[-1].context.stable
+    assert "既有的記憶與資料" in muse
+    assert "只根據下面的" not in muse and "請回答不知道" not in muse
+    # The privacy and anti-fabrication rules do not relax.
+    assert "不提供、不轉述、不確認任何金額" in muse and "不得編造" in muse
+    assert "所有成員看到" in muse
+
+
 def test_context_order_and_missing_kb_instruction(harness):
     h = harness(base_extra(persona_prompt="你是巧可，一隻貓。"))
     h.approve_all()

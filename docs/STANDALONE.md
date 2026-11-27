@@ -107,6 +107,8 @@ systemd 範例見 `examples/line-connector.service`。資料庫在 `$LINE_CONNEC
 | `POST /api/v1/send` `{"group": "disney", "text": "..."}` | 主動發訊息 |
 
 訊息預設會遮蔽敏感內容；加 `redact=0` 取得原文。
+接 Muse 的群組，題目帶的回答規則和 LLM 群組不同：Muse 可以用綁定的 Side Chat 本身的記憶與資料回答，定案事實與知識庫是補充並在衝突時優先；不提供金額、訂位編號、證件號碼、聯絡方式的規則不變。所以綁定的 Side Chat 裡只放適合全群組成員知道的內容。
+
 Muse 通常超過一分鐘才回覆，所以排進佇列時會先用免費的 reply token 回一句「收到，我查一下再回覆。」（設定檔 `muse.ack_text`，設成空字串可關閉），正式答案改用計費的 Push 送出。
 
 ## 測試

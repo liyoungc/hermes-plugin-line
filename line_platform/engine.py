@@ -353,6 +353,7 @@ class Engine:
             context=build_turn_context(
                 store=self.store, account=account, group=group, kb=kb, pinned=pinned, sender=sender,
                 text=text, current_seq=seq, owner_label=self.owner_label,
+                backend=self.group_backend(account, group),
             ),
         )
         await self._attach_media(turn, content_id, seq)
